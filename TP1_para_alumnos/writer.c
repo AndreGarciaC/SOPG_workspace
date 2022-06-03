@@ -1,4 +1,13 @@
-#include <stdio.h>
+/**
+ * @file writer.c
+ * @author Andrea García (andregarciace@gmail.com)
+ * @brief TP1: Proceso escritor de strings: entradas del usuario y señales.
+ * @version 0.1
+ * @date 2022-05-30
+ *
+ * @copyright Copyright (c) 2022
+ *
+ */
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
@@ -8,81 +17,82 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <signal.h>
+#include <stdio.h>
 
 #define FIFO_NAME "myfifo"
+#define S1 "SIGN:1"
+#define S2 "SIGN:2"
 #define BUFFER_SIZE 300
-
 char finalBuffer[BUFFER_SIZE];
+int32_t fd;
+char file_txt[7];
+
+/**
+ * @brief Handler de la señal SIGUSR1. Escribe su captura en el buffer.
+ *
+ * @param sig
+ */
 void signal_hdlr1(int sig)
 {
   if (sig == SIGUSR1)
   {
-    strcpy(finalBuffer,"SIGN:1");
-    printf("Signal 1 %s\n", finalBuffer);
+    write(fd, S1, strlen(S1));
   }
 }
 
+/**
+ * @brief Handler de la señal SIGUSR2. Escribe su captura en el name fifo.
+ *
+ * @param sig
+ */
 void signal_hdlr2(int sig)
 {
   if (sig == SIGUSR2)
   {
-    strcpy(finalBuffer,"SIGN:2");
+    write(fd, S2, strlen(S2));
   }
 }
+
 int main(void)
 {
-  char bufferHeader[]="DATA:";
-  char outputBuffer[BUFFER_SIZE-sizeof(bufferHeader)];
-
+  char bufferHeader[] = "DATA:";
+  char outputBuffer[BUFFER_SIZE - sizeof(bufferHeader)];
   uint32_t bytesWrote;
-  int32_t returnCode, fd;
+  int32_t returnCode;
 
-  /* Create named fifo. -1 means already exists so no action if already exists */
-  if ( (returnCode = mknod(FIFO_NAME, S_IFIFO | 0666, 0) ) < -1 )
+  // Creo name fifo
+  if ((returnCode = mknod(FIFO_NAME, S_IFIFO | 0666, 0)) < -1)
   {
-    printf("Error creating named fifo: %d\n", returnCode);
+    printf("Error creando named fifo: %d\n", returnCode);
     exit(1);
   }
 
-  /* Open named fifo. Blocks until other process opens it */
-  printf("waiting for readers...\n");
-  if ( (fd = open(FIFO_NAME, O_WRONLY) ) < 0 )
+  printf("Esperando proceso lector...\n");
+  if ((fd = open(FIFO_NAME, O_WRONLY)) < 0)
   {
-    printf("Error opening named fifo file: %d\n", fd);
+    printf("Error abriendo archivo fifo: %d\n", fd);
     exit(1);
   }
 
-  /* open syscalls returned without error -> other process attached to named fifo */
-  printf("got a reader--type some stuff\n");
+  printf("Proceso lector detectado... Tipea algo\n");
 
-  struct sigaction sa;
-
-	sa.sa_handler = &signal_hdlr1;
-	sa.sa_flags = SA_RESTART;
-	sigaction(SIGUSR1,&sa,NULL);
-
-  signal(SIGUSR2, signal_hdlr2);
-  /* Loop forever */
   while (1)
   {
-    fgets(outputBuffer,(sizeof(outputBuffer)), stdin);
-    sprintf(finalBuffer, "%s%s", bufferHeader,outputBuffer);
-    /* Get some text from console */
-    /* Write buffer to named fifo. Strlen - 1 to avoid sending \n char */
-    if(strcmp(finalBuffer, "SIGN:1") == 0)
-    {
-      write(fd, finalBuffer, strlen(finalBuffer)-1);
-    }
-    if ((bytesWrote = write(fd, finalBuffer, strlen(finalBuffer)-1)) == -1)
+    // Evalúo si captura las señales.
+    if (signal(SIGUSR1, signal_hdlr1) == SIG_ERR)
+      printf("\nNo se puede capturar señal SIGUSR1\n");
+    if (signal(SIGUSR2, signal_hdlr2) == SIG_ERR)
+      printf("\nNo se puede capturar señal SIGUSR2\n");
+
+    // Almacena las entradas por consola en un buffer.
+    fgets(outputBuffer, (sizeof(outputBuffer)), stdin);
+    sprintf(finalBuffer, "%s%s", bufferHeader, outputBuffer);
+
+    // Escribe el valor del buffer en name fifo.
+    if ((bytesWrote = write(fd, finalBuffer, strlen(finalBuffer) - 1)) == -1)
     {
       perror("write");
     }
-    else
-    {
-      printf("writer: wrote %d bytes\n", bytesWrote);
-    }
-
-
   }
   return 0;
 }
