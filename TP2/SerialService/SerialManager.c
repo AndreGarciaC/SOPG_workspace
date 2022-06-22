@@ -28,10 +28,10 @@ int serial_open(int pn,int baudrate)
     	{
         	fprintf(stderr,"ERROR invalid server IP\r\n");
         	return -1;
-    	}	
+    	}
 
 	while(1)
-	{	
+	{
 		printf("conectando a emulador...\n");
 		int connectRes= connect(s, (const struct sockaddr *)&serveraddr, sizeof(serveraddr));
 		printf("connectRes:%d\n",connectRes);
@@ -62,4 +62,3 @@ int serial_receive(char* buf,int size)
 	int n = read(s, buf, size);
 	return n;
 }
-
