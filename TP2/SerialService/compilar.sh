@@ -1,1 +1,1 @@
-gcc -pthread main.c SerialManager.c -o serialService
+gcc -pthread SerialService.c SerialManager.c ServerTcp.c -o serialService

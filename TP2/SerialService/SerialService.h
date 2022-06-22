@@ -1,1 +1,7 @@
-void change_buffer_content(char * p_buffer_aux, char * msg, int size);
+
+static bool flg_sport_open = false;
+static bool flg_srecv = false;
+static bool flg_socket_recv = false;
+
+void send_frame_to_emulator(char * p_buffer, char * p_msg);
+void receive_frame_from_emulator(char * p_buffer, char * p_msg);
