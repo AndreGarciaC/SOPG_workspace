@@ -14,91 +14,97 @@
 #define S_MNGR_PORT 1
 #define BAUDRATE 115200
 
-char * buffer_s[];
-char * buffer_tcp[];
-
-static void change_buffer_content(char *p_buffer, char *p_msg, int size)
+char *buffer_s[];
+char *buffer_tcp[];
+int s_socket, s_serial;
+static int bytes_read;
+static void change_buffer_content(char *p_buffer_dst, char *p_buffer_src, int size)
 {
   for (int i = 0; i < size; i++)
   {
-    *p_buffer++ = *p_msg++;
+    *p_buffer_dst++ = *p_buffer_src++;
   }
 }
 
-void send_frame_to_emulator(char *p_buffer, char *p_msg)
+void send_frame_to_emulator(char *p_buffer)
 {
-  change_buffer_content(p_buffer, p_msg, strlen(p_msg));
-  if (serial_open(S_MNGR_PORT, BAUDRATE) != 0)
+  change_buffer_content(p_buffer, &buffer_tcp, BUFFER_SIZE);
+  if (flg_sport_open)
   {
-    printf("Error abriendo puerto serie");
-  }
-  else
-    serial_send(p_buffer, strlen(p_buffer));
-}
-
-void receive_frame_from_emulator(char *p_buffer, char *p_msg)
-{
-  if (serial_receive(p_buffer, BUFFER_SIZE) > 0)
-  {
-    flg_srecv = true;
-  }
-}
-
-void receive_frame_from_interface(int s, char *p_buffer)
-{
-}
-
-void *thread_from_interface(void *p_buffer)
-{
-  printf("Hilo 2");
-  sleep(1);
-  return NULL;
-}
-
-void *thread_from_emulator(void *p_buffer)
-{
-  int s;
-
-  if (serial_receive(buffer_s, BUFFER_SIZE) > 0)
-  {
-    flg_srecv = true;
+    serial_send(p_buffer, BUFFER_SIZE);
     memset(buffer_tcp, '\0', BUFFER_SIZE);
-    strcpy(buffer_tcp,buffer_s);
   }
-
-  s = create_socket();
-  server_process(s,buffer_tcp,BUFFER_SIZE);
-
-  return NULL;
 }
+
+void receive_frame_from_emulator(char *p_buffer)
+{
+  int bytes_read = serial_receive(p_buffer, BUFFER_SIZE);
+  if (bytes_read > 0)
+  {
+    do
+    {
+      buffer_s[bytes_read] = '\0';
+      bytes_read = serial_receive(p_buffer, BUFFER_SIZE);
+    } while (bytes_read > 0);
+
+    flg_srecv = true;
+    // memset(buffer_tcp, '\0', BUFFER_SIZE);
+    // strcpy(buffer_tcp, buffer_s);
+  }
+}
+
+void *thread_serial_com(void *p_buffer_s)
+{
+  printf("Hilo 1. Comunicación serial\n");
+  // receive_frame_from_emulator(p_buffer_s);
+  // if (flg_socket_recv)
+  // {
+  //   printf("Enviamos\n");
+  //   send_frame_to_emulator(p_buffer_s);
+  // }
+}
+
+void *thread_tcp_com(void *p_buffer_tcp)
+{
+  printf("Hilo 2. Comunicación TCP\n");
+  server_process(s_socket, p_buffer_tcp, BUFFER_SIZE, &flg_srecv);
+}
+
 int main(void)
 {
-  char s_buffer[BUFFER_SIZE];
-  pthread_t data_from_interface, data_from_emulator;
 
-  if (serial_open(S_MNGR_PORT, BAUDRATE) != 0)
-  {
-    printf("Error abriendo puerto serie");
-  }
+  s_socket = create_socket();
+   server_process(s_socket, &buffer_tcp, BUFFER_SIZE, &flg_srecv);
+  pthread_t serial_com, tcp_com;
 
-  pthread_create(&data_from_interface, NULL, thread_from_interface, (void *)buffer);
-  pthread_create(&data_from_emulator, NULL, thread_from_emulator, (void *)buffer);
-
-  pthread_join(data_from_interface, NULL);
-  pthread_join(data_from_emulator, NULL);
-  return 0;
-  // char message[] = ">OUT:1,0\r\n";
   // if (serial_open(S_MNGR_PORT, BAUDRATE) != 0)
   // {
-  //   flg_sport_open = true;
   //   printf("Error abriendo puerto serie");
   // }
   // else
   // {
-  //   // send_frame_to_emulator(buffer, message);
-  //   while (1)
-  //   {
-  //     receive_frame_from_emulator(&buffer, message);
-  //   }
+  //   printf("Puerto abierto\n");
+  //   flg_sport_open = true;
   // }
+  
+    // int ret_serial = pthread_create(&serial_com, NULL, thread_serial_com, (void *)buffer_s);
+    // int ret_tcp = pthread_create(&tcp_com, NULL, thread_tcp_com, (void *)buffer_tcp);
+
+    // if (!ret_serial)
+    // {
+    //   errno = ret_serial;
+    //   perror("pthread_create");
+    //   return -1;
+    // }
+    // if (!ret_tcp)
+    // {
+    //   errno = ret_tcp;
+    //   perror("pthread_create");
+    //   return -1;
+    // }
+
+    // pthread_join(serial_com, NULL);
+    // pthread_join(tcp_com, NULL);
+
+  return 0;
 }
