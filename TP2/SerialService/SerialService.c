@@ -16,15 +16,9 @@
 
 char *buffer_s[];
 char *buffer_tcp[];
-int s_socket, s_serial;
+int s_socket, s_serial, newfd;
 static int bytes_read;
-static void change_buffer_content(char *p_buffer_dst, char *p_buffer_src, int size)
-{
-  for (int i = 0; i < size; i++)
-  {
-    *p_buffer_dst++ = *p_buffer_src++;
-  }
-}
+
 
 void send_frame_to_emulator(char *p_buffer)
 {
@@ -55,56 +49,99 @@ void receive_frame_from_emulator(char *p_buffer)
 
 void *thread_serial_com(void *p_buffer_s)
 {
-  printf("Hilo 1. Comunicación serial\n");
-  // receive_frame_from_emulator(p_buffer_s);
-  // if (flg_socket_recv)
-  // {
-  //   printf("Enviamos\n");
-  //   send_frame_to_emulator(p_buffer_s);
-  // }
+  while (1)
+  {
+    printf("Hilo 1. Comunicación serial\n");
+    receive_frame_from_emulator(p_buffer_s);
+    if (flg_srecv && flg_socket_open)
+    {
+      printf("Enviamos a Interfaz\n");
+      if(accept_connection(s_socket, &newfd)>0)
+      flg_connected = true;
+
+      while(flg_connected)
+      {
+        if(send_msg_client_tcp(newfd, buffer_tcp, BUFFER_SIZE)==0)
+        {
+          printf("enviado %s \n",buffer_tcp);
+        }
+        else
+        {
+          flg_connected = false;
+        }
+      }
+
+    }
+    sleep(1);
+  }
 }
 
 void *thread_tcp_com(void *p_buffer_tcp)
 {
-  printf("Hilo 2. Comunicación TCP\n");
-  server_process(s_socket, p_buffer_tcp, BUFFER_SIZE, &flg_srecv);
+  while (1)
+  {
+    printf("Hilo 2. Comunicación TCP\n");
+    if(accept_connection(s_socket, &newfd)>0)
+    flg_connected = true;
+    while(flg_connected)
+    {
+      if(server_recv_msg(newfd, buffer_tcp, BUFFER_SIZE)==0)
+      printf("recibido %s \n",buffer_tcp);
+      else
+      flg_connected = false;
+    }
+    sleep(1);
+  }
 }
 
 int main(void)
 {
 
   s_socket = create_socket();
-   server_process(s_socket, &buffer_tcp, BUFFER_SIZE, &flg_srecv);
+  if(s_socket>0)
+  {
+    flg_socket_open = true;
+    printf("Socket creado\n");
+  }
+  else
+  {
+    printf("Error abriendo el socket\n");
+    return -1;
+  }
+
+  if (serial_open(S_MNGR_PORT, BAUDRATE) != 0)
+  {
+    printf("Error abriendo puerto serie\n");
+    return -1;
+  }
+  else
+  {
+    printf("Puerto abierto\n");
+    flg_sport_open = true;
+  }
+
   pthread_t serial_com, tcp_com;
 
-  // if (serial_open(S_MNGR_PORT, BAUDRATE) != 0)
-  // {
-  //   printf("Error abriendo puerto serie");
-  // }
-  // else
-  // {
-  //   printf("Puerto abierto\n");
-  //   flg_sport_open = true;
-  // }
-  
-    // int ret_serial = pthread_create(&serial_com, NULL, thread_serial_com, (void *)buffer_s);
-    // int ret_tcp = pthread_create(&tcp_com, NULL, thread_tcp_com, (void *)buffer_tcp);
+  int ret_serial = pthread_create(&serial_com, NULL, thread_serial_com, (void *)buffer_s);
+  if (!ret_serial)
+  {
+    errno = ret_serial;
+    perror("pthread_create");
+    return -1;
+  }
 
-    // if (!ret_serial)
-    // {
-    //   errno = ret_serial;
-    //   perror("pthread_create");
-    //   return -1;
-    // }
-    // if (!ret_tcp)
-    // {
-    //   errno = ret_tcp;
-    //   perror("pthread_create");
-    //   return -1;
-    // }
+  int ret_tcp = pthread_create(&tcp_com, NULL, thread_tcp_com, (void *)buffer_tcp);
+  if (!ret_tcp)
+  {
+    errno = ret_tcp;
+    perror("pthread_create");
+    return -1;
+  }
 
-    // pthread_join(serial_com, NULL);
-    // pthread_join(tcp_com, NULL);
-
+  pthread_join(serial_com, NULL);
+  pthread_join(tcp_com, NULL);
   return 0;
 }
+
+  
+
