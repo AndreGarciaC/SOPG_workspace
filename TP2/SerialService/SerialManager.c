@@ -43,7 +43,7 @@ int serial_open(int pn,int baudrate)
 		sleep(1);
 	}
 	printf("Emulador conectado\n");
-    	return 0;
+    return 0;
 }
 
 
