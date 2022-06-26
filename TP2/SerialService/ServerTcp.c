@@ -52,7 +52,7 @@ int accept_connection(int s, int * newfd)
 {
   printf("Ejecutamos accept\n");
   addr_len = sizeof(struct sockaddr_in);
-  if (-1 == (*newfd = accept(s, (struct sockaddr *)&clientaddr, &addr_len)))
+  if (-1 == (newfd = accept(s, (struct sockaddr *)&clientaddr, &addr_len)))
   {
     perror("error en accept");
     exit(1);

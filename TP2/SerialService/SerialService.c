@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "SerialManager.h"
 #include "SerialService.h"
@@ -19,7 +20,7 @@ char *buffer_tcp[];
 int s_socket, s_serial, newfd;
 int bytes_read;
 
-static open_serial_port()
+static void open_serial_port()
 {
   if (serial_open(S_MNGR_PORT, BAUDRATE) != 0)
   {
@@ -76,7 +77,7 @@ void *thread_serial_com(void *p_buffer_s)
     //       flg_connected = false;
     //   }
     // }
-    sleep(1);
+    usleep(1000);
   }
   return NULL;
 }
@@ -100,7 +101,7 @@ void *thread_tcp_com(void *p_buffer_tcp)
       else
         flg_connected = false;
     }
-    sleep(1);
+    usleep(1000);
   }
   return NULL;
 }

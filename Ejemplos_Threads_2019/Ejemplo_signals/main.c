@@ -46,6 +46,10 @@ int main(void)
 		perror("sigaction");
 		exit(1);
 	}
+  if (sigaction(SIGTERM, &sa, NULL) == -1) {
+		perror("sigaction");
+		exit(1);
+	}
 
 	printf("Bloqueo signal\n");
 	bloquearSign();
@@ -57,7 +61,7 @@ int main(void)
 		sleep(1);
 		printf("%d \n",c);
 		c++;
-	}	
+	}
 	printf("Desbloqueo signal\n");
 
 	desbloquearSign();
